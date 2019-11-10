@@ -1,0 +1,20 @@
+{
+  "name": "npm-football-data",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^3.6.4"
+  },
+  "dependencies": {
+    "@types/needle": "^2.0.4",
+    "needle": "^2.4.0"
+  }
+}
