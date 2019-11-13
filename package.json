@@ -1,20 +1,19 @@
 {
   "name": "npm-football-data",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p .",
-    "start": "node dist/index.js"
+    "start": "npm run build; node dist/index",
+    "build": "tsc -p ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "typescript": "^3.6.4"
-  },
   "dependencies": {
-    "@types/needle": "^2.0.4",
-    "needle": "^2.4.0"
+    "@types/cheerio": "^0.22.13",
+    "@types/request": "^2.48.3",
+    "cheerio": "^1.0.0-rc.3",
+    "request": "^2.88.0"
   }
 }

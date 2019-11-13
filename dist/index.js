@@ -1,12 +1,6 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
@@ -16,110 +10,67 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const needle = __importStar(require("needle"));
-let options = {
-    headers: { 'X-Auth-Token': '3ed277c07502468b9acf3f1b56e31bc3' }
+const request_1 = __importDefault(require("request"));
+const cheerio_1 = __importDefault(require("cheerio"));
+const helpers_1 = require("./lib/helpers");
+const leagues = __importStar(require("./lib/leagues.enum"));
+exports.optionsData = {
+    league: leagues.Germany.BUNDESLIGA
 };
-let footballOptions = {
-    competitions: 'SA',
-};
-function getAllTeamsByComp() {
-    const response = new Promise((resolve, reject) => {
-        needle.get(`http://api.football-data.org/v2/competitions/${footballOptions.competitions}/teams`, options, (err, resp) => {
-            if (resp.statusCode === 200) {
-                resolve(resp.body);
+exports.leaguesList = leagues;
+exports.fetchTeams = () => {
+    let fetchedTeams = [];
+    const teams = new Promise((resolve, reject) => {
+        request_1.default(`${helpers_1.domain}${exports.optionsData.league}/squadre/`, (err, res, html) => {
+            if (err || res.statusCode !== 200) {
+                resolve(undefined);
             }
-            else if (err) {
-                reject(`[${resp.statusCode}] ${err}`);
-            }
+            const $ = cheerio_1.default.load(html);
+            const teamsHtml = $('a.leagueTable__team');
+            teamsHtml.each((i, team) => {
+                fetchedTeams.push($(team).text());
+            });
+            resolve(fetchedTeams);
         });
     });
-    return response;
-}
-function getTeamByName(shortName) {
-    const response = new Promise((resolve, reject) => {
-        return getAllTeamsByComp()
-            .then(result => {
-            for (let i = 0; i < result.teams.length; i++) {
-                const team = result.teams[i];
-                if (team.shortName === shortName) {
-                    return resolve(team);
-                }
-            }
-            return reject({
-                statusCode: 404,
-                message: 'Team not found!'
+    return teams;
+};
+exports.fetchPlayersForTeam = (name) => {
+    let fetchedPlayers = [];
+    const players = new Promise((resolve, reject) => {
+        helpers_1.findUrlTeam(name, exports.optionsData.league)
+            .then(teamUrl => {
+            request_1.default(`${helpers_1.domain}${teamUrl}/rosa`, (err, res, html) => {
+                const $ = cheerio_1.default.load(html);
+                const roles = $('.profileTable__row--start');
+                roles.each((i, item) => {
+                    let currentRow = $(item).next();
+                    while (currentRow.hasClass('profileTable__row--between')) {
+                        const shirtNumber = $(currentRow).find('.tableTeam__squadNumber');
+                        const name = $(currentRow).find('.tableTeam__squadName--playerName a');
+                        const age = $(currentRow).find('.playerTable__sportIcon--age');
+                        const presence = age.next('.playerTable__sportIcon');
+                        const goals = presence.next('.playerTable__sportIcon');
+                        const yellowCards = goals.next('.playerTable__sportIcon');
+                        const redCards = yellowCards.next('.playerTable__sportIcon');
+                        const player = {
+                            shirtNumber: +$(shirtNumber).text(),
+                            name: $(name).text(),
+                            age: +($(age).text()),
+                            presence: +$(presence).text(),
+                            goals: +$(goals).text(),
+                            yellowCards: +$(yellowCards).text(),
+                            redCards: +$(redCards).text(),
+                            role: helpers_1.customizeRole($(item).text())
+                        };
+                        fetchedPlayers.push(player);
+                        currentRow = currentRow.next('.profileTable__row');
+                    }
+                });
+                resolve(fetchedPlayers);
             });
         });
     });
-    return response;
-}
-function getPlayersForTeam(shortName) {
-    const response = new Promise((resolve, reject) => {
-        return getTeamByName(shortName).then(team => {
-            const teamId = team.id;
-            return getTeamById(teamId).then(team => {
-                if (team.statusCode) {
-                    return reject({
-                        statusCode: 404,
-                        message: 'Team not found!'
-                    });
-                }
-                resolve(team.squad);
-            });
-        });
-    });
-    return response;
-}
-// Private
-function getTeamById(teamId) {
-    const response = new Promise((resolve, reject) => {
-        needle.get(`http://api.football-data.org/v2/teams/${teamId}`, options, (err, resp) => {
-            if (resp.statusCode === 200) {
-                resolve(resp.body);
-            }
-            else if (err) {
-                reject(`[${resp.statusCode}] ${err}`);
-            }
-        });
-    });
-    return response;
-}
-function getPlayersForComp(limit = 0) {
-    const response = new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-        const result = yield getAllTeamsByComp();
-        const players = {};
-        const teamsLimit = limit === 0
-            ? 8
-            : limit;
-        for (let i = 0; i < teamsLimit; i++) {
-            const teamId = result.teams[i].id;
-            const teamWithPlayers = yield getTeamById(teamId);
-            const squad = teamWithPlayers.squad;
-            console.log(i);
-            players[teamWithPlayers.shortName] = squad;
-        }
-        resolve(players);
-    }));
-    return response;
-}
-getPlayersForComp().then(players => {
-    console.log(players);
-});
-// function getPlayersForComp() {
-//     let players: any[] = [];
-//     const response = new Promise(async (resolve, reject) => {
-//         const result = await getAllTeamsByComp();
-//         const teams = result.teams;
-//         for (let i = 0; i < teams.length; i++) {
-//             const team = teams[i];
-//             console.log(team);
-//             const fetchedTeam = await getTeamByName(team.shortName);
-//             const teamSquad = await getTeamById(fetchedTeam.id);
-//             players.push(teamSquad.squad);
-//         }
-//         resolve(players);
-//     });
-//     return response;
-// }
+    return players;
+};
 //# sourceMappingURL=index.js.map

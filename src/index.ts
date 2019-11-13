@@ -1,104 +1,78 @@
-import * as needle from 'needle';
+import request, { Response } from 'request';
+import cheerio from 'cheerio';
 
-let options = {
-    headers: { 'X-Auth-Token': '3ed277c07502468b9acf3f1b56e31bc3' }
+import { 
+    domain,
+    findUrlTeam,
+    customizeRole
+ } from './lib/helpers';
+
+import * as leagues from './lib/leagues.enum';
+import Player from './lib/models/player.model';
+
+export let optionsData = {
+    league: leagues.Germany.BUNDESLIGA as String
 }
 
-let footballOptions = {
-    competitions: 'SA',
-}
+export const leaguesList = leagues;
 
-function getAllTeamsByComp(): Promise<any> {
-    const response = new Promise((resolve, reject) => {
-        needle.get(
-            `http://api.football-data.org/v2/competitions/${footballOptions.competitions}/teams`,
-            options, 
-            (err, resp) => {
-            if (resp.statusCode === 200) {
-                resolve(resp.body);
-            } else if(err) {
-                reject(`[${resp.statusCode}] ${err}`);
+export const fetchTeams = (): Promise<String[]> => {
+    let fetchedTeams: String[] = [];
+    const teams = new Promise<String[]>((resolve, reject) => {
+        request(`${domain}${optionsData.league}/squadre/`, (err: Error, res: Response, html: string) => {
+            if (err || res.statusCode !== 200) {
+                resolve(undefined);
             }
+            const $ = cheerio.load(html);
+            const teamsHtml = $('a.leagueTable__team');
+            teamsHtml.each((i: Number, team: CheerioElement) => {
+                fetchedTeams.push($(team).text());
+            })
+            resolve(fetchedTeams);
         });
     });
-    return response;
-}
+    return teams;
+};
+    
 
-function getTeamByName(shortName: String): Promise<any> {
-    const response = new Promise((resolve, reject) => {
-        return getAllTeamsByComp()
-        .then(result => {
-            for (let i = 0; i < result.teams.length; i++) {
-                const team = result.teams[i];
-                if(team.shortName === shortName) {
-                    return resolve(team);
-                }
-            }
-            return reject({
-                statusCode: 404,
-                message: 'Team not found!'
+export const fetchPlayersForTeam = (name: String): Promise<Player []> => {
+    let fetchedPlayers: Player[] = [];
+    const players = new Promise<Player []>((resolve, reject) => {
+        findUrlTeam(name, optionsData.league)
+        .then(teamUrl => {
+            request(`${domain}${teamUrl}/rosa`, (err: Error, res: Response, html: string) => {
+                const $ = cheerio.load(html);
+                const roles = $('.profileTable__row--start');
+                roles.each((i: Number, item: CheerioElement) => {
+
+                    let currentRow = $(item).next();
+                    while (currentRow.hasClass('profileTable__row--between')) {
+                        const shirtNumber = $(currentRow).find('.tableTeam__squadNumber');
+                        const name = $(currentRow).find('.tableTeam__squadName--playerName a');
+                        const age = $(currentRow).find('.playerTable__sportIcon--age');
+                        const presence = age.next('.playerTable__sportIcon');
+                        const goals = presence.next('.playerTable__sportIcon');
+                        const yellowCards = goals.next('.playerTable__sportIcon');
+                        const redCards = yellowCards.next('.playerTable__sportIcon');
+
+                        const player: Player = {
+                            shirtNumber: +$(shirtNumber).text(),
+                            name: $(name).text(),
+                            age: +($(age).text()),
+                            presence: +$(presence).text(),
+                            goals: +$(goals).text(),
+                            yellowCards: +$(yellowCards).text(),
+                            redCards: +$(redCards).text(),
+                            role: customizeRole($(item).text())
+                        };
+
+                        fetchedPlayers.push(player);
+                        currentRow = currentRow.next('.profileTable__row');
+                    }
+                })
+                resolve(fetchedPlayers);
             });
         });
     });
-    return response;
+    return players;
 }
-
-function getPlayersForTeam(shortName: String): Promise<any> {
-    const response = new Promise((resolve, reject) => {
-        return getTeamByName(shortName).then(team => {
-            const teamId = team.id;
-            return getTeamById(teamId).then(team => {
-                if (team.statusCode) {
-                    return reject({
-                        statusCode: 404,
-                        message: 'Team not found!'
-                    });
-                }
-                resolve(team.squad);
-            })
-        })
-    });
-    return response;
-    
-}
-
-// Private
-function getTeamById(teamId: number): Promise<any> {
-    const response = new Promise((resolve, reject) => {
-        needle.get(`http://api.football-data.org/v2/teams/${teamId}`, options, (err, resp) => {
-            if (resp.statusCode === 200) {
-                resolve(resp.body);
-            } else if(err) {
-                reject(`[${resp.statusCode}] ${err}`);
-            }
-        });
-    });
-    return response;
-}
-
-function getPlayersForComp(limit: number = 0) {
-
-    const response = new Promise(async (resolve, reject) => {
-        const result = await getAllTeamsByComp();
-        const players: any = {};
-        const teamsLimit = limit === 0 
-        ? 8
-        : limit;
-
-        for (let i = 0; i < teamsLimit; i++) {
-            const teamId = result.teams[i].id;
-            const teamWithPlayers = await getTeamById(teamId);
-            const squad = teamWithPlayers.squad;
-            console.log(i);
-            players[teamWithPlayers.shortName] = squad;   
-        }
-        resolve(players);
-    });
-    return response;
-}
-
-
-
-
-
-
