@@ -11,7 +11,7 @@ import * as leagues from './lib/leagues.enum';
 import Player from './lib/models/player.model';
 
 export let optionsData = {
-    league: leagues.Germany.BUNDESLIGA as String
+    league: leagues.Italy.SERIEC_C as String
 }
 
 export const leaguesList = leagues;
@@ -76,3 +76,8 @@ export const fetchPlayersForTeam = (name: String): Promise<Player []> => {
     });
     return players;
 }
+
+
+fetchPlayersForTeam('Catania').then(players => {
+    console.log(players);
+});

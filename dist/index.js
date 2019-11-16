@@ -15,7 +15,7 @@ const cheerio_1 = __importDefault(require("cheerio"));
 const helpers_1 = require("./lib/helpers");
 const leagues = __importStar(require("./lib/leagues.enum"));
 exports.optionsData = {
-    league: leagues.Germany.BUNDESLIGA
+    league: leagues.Italy.SERIEC_C
 };
 exports.leaguesList = leagues;
 exports.fetchTeams = () => {
@@ -73,4 +73,7 @@ exports.fetchPlayersForTeam = (name) => {
     });
     return players;
 };
+exports.fetchPlayersForTeam('Catania').then(players => {
+    console.log(players);
+});
 //# sourceMappingURL=index.js.map

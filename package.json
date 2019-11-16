@@ -1,8 +1,8 @@
 {
   "name": "npm-football-data",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "npm run build; node dist/index",
     "build": "tsc -p ."
@@ -10,6 +10,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "types": "dist/index.d.ts",
   "dependencies": {
     "@types/cheerio": "^0.22.13",
     "@types/request": "^2.48.3",
